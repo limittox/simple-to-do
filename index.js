@@ -18,14 +18,7 @@ app.get('/api/tasks', (req, res) => {
 })
 
 app.put('/api/tasks/:id', (request, response) => {
-  const body = request.body
-  // console.log(body)
-  const task = {
-    taskName: body.taskName,
-    done: body.done
-  }
-
-  Task.findByIdAndUpdate({_id: request.params.id}, request.body)
+  Task.findByIdAndUpdate(request.params.id, request.body)
     .then(() => {
       Task.findOne({_id: request.params.id}).then((updatedTask) => {
         response.json(updatedTask)
@@ -45,7 +38,7 @@ app.get('/api/tasks/:id', (request, response) => {
     })
     .catch(error => {
       console.log(error)
-      response.status(500).end()
+      response.status(400).send({ error: 'malformatted id' })
     })
 })
 
@@ -71,10 +64,34 @@ app.post('/api/tasks', (request, response) => {
     done: false,
   })
 
-  task.save().then(savedTask => {
-    response.json(savedTask)
+  task.save()
+    .then(savedTask => {
+      response.json(savedTask)
   })
+    .catch(error => next(error))
 })
+
+const unknownEndpoint = (request, response) => {
+  response.status(404).send({ error: 'unknown endpoint' })
+}
+
+// handler of requests with unknown endpoint
+app.use(unknownEndpoint)
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message)
+
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' })
+  } else if (error.name === 'ValidationError') {
+    return response.status(400).json({ error: error.message })
+  }
+
+  next(error)
+}
+
+// handler of requests with result to errors
+app.use(errorHandler)
 
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
